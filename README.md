@@ -637,7 +637,7 @@ Integrated across: React Web, Android App (Kotlin/Jetpack Compose), Streamlit Da
 
 ## 👥 Team SwadeshAI
 
-- **Utkarsh Kumar** — Team Lead
+- **Devadatt Gholap, Deepika Kanade, Utkarsh Kumar**
 - **Contact**: utkarsharma2026@gmail.com
 - **GitHub**: https://github.com/kutkarshbtech/AI_Smart_Agriculture_Decision-_System-hackathon
 - **Hackathon**: AWS AI for Bharat Hackathon

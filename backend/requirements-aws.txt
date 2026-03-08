@@ -1,0 +1,60 @@
+# AWS-Only Requirements (no local ML inference — SageMaker handles it)
+# This produces a ~500MB Docker image instead of ~9GB
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# AWS SDK
+boto3>=1.35.0
+botocore>=1.35.0
+
+# ML & Data Science (XGBoost for pricing only — lightweight)
+scikit-learn==1.4.0
+xgboost>=3.0.0
+pandas==2.2.0
+numpy==1.26.3
+joblib==1.3.2
+
+# Causal Inference (~200MB additional — critical feature)
+dowhy>=0.11
+scipy>=1.12
+statsmodels>=0.14
+networkx>=3.2
+sympy>=1.12
+
+# Computer Vision (image preprocessing only — inference via SageMaker)
+opencv-python-headless==4.9.0.80
+Pillow==10.2.0
+
+# NOTE: torch, torchvision, onnx, onnxruntime EXCLUDED
+# In AWS_ONLY mode, SageMaker/Rekognition handle model inference
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+aiomysql==0.2.0
+
+# Graph Database (Neptune)
+gremlinpython==3.7.1
+
+# HTTP Client
+httpx==0.26.0
+aiohttp==3.9.3
+
+# Caching
+redis==5.0.1
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Monitoring & Logging
+structlog==24.1.0
+
+# Utilities
+python-dotenv==1.0.1
+tenacity==8.2.3

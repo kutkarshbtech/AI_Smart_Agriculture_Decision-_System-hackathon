@@ -1,0 +1,91 @@
+{
+  "num_samples": 50000,
+  "num_crops": 16,
+  "crop_names": [
+    "apple",
+    "banana",
+    "brinjal",
+    "capsicum",
+    "carrot",
+    "cauliflower",
+    "grape",
+    "guava",
+    "mango",
+    "okra",
+    "onion",
+    "potato",
+    "rice",
+    "spinach",
+    "tomato",
+    "wheat"
+  ],
+  "crop_to_idx": {
+    "apple": 0,
+    "banana": 1,
+    "brinjal": 2,
+    "capsicum": 3,
+    "carrot": 4,
+    "cauliflower": 5,
+    "grape": 6,
+    "guava": 7,
+    "mango": 8,
+    "okra": 9,
+    "onion": 10,
+    "potato": 11,
+    "rice": 12,
+    "spinach": 13,
+    "tomato": 14,
+    "wheat": 15
+  },
+  "feature_columns": [
+    "crop_type_idx",
+    "storage_type",
+    "temperature_c",
+    "humidity_pct",
+    "days_since_harvest",
+    "transport_hours",
+    "initial_quality_score",
+    "quantity_kg",
+    "damage_sensitivity",
+    "base_shelf_life_days",
+    "temp_deviation",
+    "humidity_deviation",
+    "respiration_multiplier"
+  ],
+  "target_columns": [
+    "remaining_shelf_life_days",
+    "spoilage_probability",
+    "risk_level"
+  ],
+  "risk_levels": {
+    "0": "low",
+    "1": "medium",
+    "2": "high",
+    "3": "critical"
+  },
+  "splits": {
+    "train": 34970,
+    "val": 7470,
+    "test": 7560
+  },
+  "class_distribution": {
+    "train": {
+      "3": 21808,
+      "0": 9709,
+      "1": 1842,
+      "2": 1611
+    },
+    "val": {
+      "3": 4666,
+      "0": 2075,
+      "1": 388,
+      "2": 341
+    },
+    "test": {
+      "3": 4690,
+      "0": 2097,
+      "1": 410,
+      "2": 363
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Spoilage Prediction ML Pipeline — Dependencies
+
+# Core ML
+xgboost>=2.0.0
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.1.0
+joblib>=1.3.0
+
+# Evaluation & visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Optional: ONNX export
+# onnxmltools>=1.12.0
+# skl2onnx>=1.16.0
+# onnxconverter-common>=1.14.0
+
+# AWS Services
+boto3>=1.28.0            # Amazon Bedrock + SageMaker
+
+# Utilities
+tqdm>=4.66.0

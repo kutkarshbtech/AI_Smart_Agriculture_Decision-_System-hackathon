@@ -1,0 +1,222 @@
+{
+  "n_samples": 7560,
+  "shelf_life_metrics": {
+    "mae": 10.9614,
+    "rmse": 34.226,
+    "r2": 0.8417,
+    "mape": 179.21,
+    "median_ae": 0.9,
+    "max_error": 425.6
+  },
+  "probability_metrics": {
+    "mae": 0.0848,
+    "rmse": 0.1618,
+    "r2": 0.8537,
+    "mape": 91.86,
+    "median_ae": 0.0274,
+    "max_error": 0.8947
+  },
+  "risk_metrics": {
+    "accuracy": 0.8753,
+    "adjacent_accuracy": 0.9361,
+    "weighted_f1": 0.8513,
+    "per_class": {
+      "low": {
+        "precision": 0.8712,
+        "recall": 0.9132,
+        "f1": 0.8917,
+        "support": 2097
+      },
+      "medium": {
+        "precision": 0.4645,
+        "recall": 0.2073,
+        "f1": 0.2867,
+        "support": 410
+      },
+      "high": {
+        "precision": 0.4868,
+        "recall": 0.1019,
+        "f1": 0.1686,
+        "support": 363
+      },
+      "critical": {
+        "precision": 0.8975,
+        "recall": 0.9765,
+        "f1": 0.9354,
+        "support": 4690
+      }
+    },
+    "confusion_matrix": [
+      [
+        1915,
+        40,
+        4,
+        138
+      ],
+      [
+        134,
+        85,
+        27,
+        164
+      ],
+      [
+        75,
+        30,
+        37,
+        221
+      ],
+      [
+        74,
+        28,
+        8,
+        4580
+      ]
+    ]
+  },
+  "per_crop_metrics": {
+    "apple": {
+      "n_samples": 471,
+      "shelf_life_mae": 9.19,
+      "probability_mae": 0.0831,
+      "risk_accuracy": 0.8662,
+      "hindi": "सेब",
+      "category": "fruit"
+    },
+    "banana": {
+      "n_samples": 473,
+      "shelf_life_mae": 11.09,
+      "probability_mae": 0.0831,
+      "risk_accuracy": 0.8837,
+      "hindi": "केला",
+      "category": "fruit"
+    },
+    "brinjal": {
+      "n_samples": 473,
+      "shelf_life_mae": 10.71,
+      "probability_mae": 0.0875,
+      "risk_accuracy": 0.8732,
+      "hindi": "बैंगन",
+      "category": "vegetable"
+    },
+    "capsicum": {
+      "n_samples": 473,
+      "shelf_life_mae": 11.28,
+      "probability_mae": 0.0852,
+      "risk_accuracy": 0.8732,
+      "hindi": "शिमला मिर्च",
+      "category": "vegetable"
+    },
+    "carrot": {
+      "n_samples": 472,
+      "shelf_life_mae": 12.52,
+      "probability_mae": 0.0892,
+      "risk_accuracy": 0.8729,
+      "hindi": "गाजर",
+      "category": "vegetable"
+    },
+    "cauliflower": {
+      "n_samples": 472,
+      "shelf_life_mae": 9.95,
+      "probability_mae": 0.0969,
+      "risk_accuracy": 0.875,
+      "hindi": "फूलगोभी",
+      "category": "vegetable"
+    },
+    "grape": {
+      "n_samples": 473,
+      "shelf_life_mae": 13.71,
+      "probability_mae": 0.0884,
+      "risk_accuracy": 0.8668,
+      "hindi": "अंगूर",
+      "category": "fruit"
+    },
+    "guava": {
+      "n_samples": 472,
+      "shelf_life_mae": 12.38,
+      "probability_mae": 0.0829,
+      "risk_accuracy": 0.8792,
+      "hindi": "अमरूद",
+      "category": "fruit"
+    },
+    "mango": {
+      "n_samples": 473,
+      "shelf_life_mae": 9.98,
+      "probability_mae": 0.0749,
+      "risk_accuracy": 0.8816,
+      "hindi": "आम",
+      "category": "fruit"
+    },
+    "okra": {
+      "n_samples": 473,
+      "shelf_life_mae": 10.33,
+      "probability_mae": 0.0664,
+      "risk_accuracy": 0.8943,
+      "hindi": "भिंडी",
+      "category": "vegetable"
+    },
+    "onion": {
+      "n_samples": 473,
+      "shelf_life_mae": 12.34,
+      "probability_mae": 0.0879,
+      "risk_accuracy": 0.871,
+      "hindi": "प्याज",
+      "category": "vegetable"
+    },
+    "potato": {
+      "n_samples": 473,
+      "shelf_life_mae": 10.42,
+      "probability_mae": 0.0916,
+      "risk_accuracy": 0.8774,
+      "hindi": "आलू",
+      "category": "vegetable"
+    },
+    "rice": {
+      "n_samples": 473,
+      "shelf_life_mae": 9.96,
+      "probability_mae": 0.0845,
+      "risk_accuracy": 0.8732,
+      "hindi": "चावल",
+      "category": "grain"
+    },
+    "spinach": {
+      "n_samples": 472,
+      "shelf_life_mae": 11.02,
+      "probability_mae": 0.0897,
+      "risk_accuracy": 0.8623,
+      "hindi": "पालक",
+      "category": "leafy_green"
+    },
+    "tomato": {
+      "n_samples": 472,
+      "shelf_life_mae": 10.84,
+      "probability_mae": 0.0785,
+      "risk_accuracy": 0.8814,
+      "hindi": "टमाटर",
+      "category": "vegetable"
+    },
+    "wheat": {
+      "n_samples": 472,
+      "shelf_life_mae": 9.65,
+      "probability_mae": 0.0871,
+      "risk_accuracy": 0.8729,
+      "hindi": "गेहूं",
+      "category": "grain"
+    }
+  },
+  "error_analysis": {
+    "shelf_life": {
+      "mean_error": -0.051,
+      "std_error": 34.226,
+      "overestimates_pct": 55.0,
+      "underestimates_pct": 21.9,
+      "exact_pct": 41.0,
+      "within_1_day_pct": 51.7,
+      "within_3_days_pct": 65.9
+    },
+    "risk_level": {
+      "overestimates_pct": 7.9,
+      "underestimates_pct": 4.6,
+      "off_by_2_or_more_pct": 6.4
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Freshness Detection ML Pipeline — Dependencies
+
+# Core
+torch>=2.1.0
+torchvision>=0.16.0
+numpy>=1.26.0
+Pillow>=10.0.0
+
+# Model export
+onnx>=1.15.0
+onnxruntime>=1.16.0
+
+# Evaluation & visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+scikit-learn>=1.4.0
+
+# Optional: TFLite export
+# onnx-tf>=1.10.0
+# tensorflow>=2.15.0
+
+# Dataset utilities
+tqdm>=4.66.0

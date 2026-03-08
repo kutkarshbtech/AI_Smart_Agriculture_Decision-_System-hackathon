@@ -1,0 +1,883 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  SwadeshAI - AI-Powered Post-Harvest Decision Intelligence Platform
+  AWS Infrastructure for Bharat Hackathon
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  ProjectName:
+    Type: String
+    Default: swadesh-ai
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: RDS PostgreSQL master password
+  MandiApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: data.gov.in API key for live mandi prices
+  BedrockModelId:
+    Type: String
+    Default: amazon.nova-lite-v1:0
+    Description: Amazon Bedrock model ID (Nova Lite)
+
+Resources:
+  # ============================================================
+  # VPC & Networking
+  # ============================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-vpc-${Environment}
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-private-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-private-2
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # ============================================================
+  # S3 Buckets
+  # ============================================================
+  ProduceImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-produce-images-${Environment}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldImages
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ML Models S3 bucket is pre-created by deploy.sh (model must exist
+  # before SageMaker resources). Referenced by name convention:
+  #   ${ProjectName}-ml-models-${Environment}
+
+  # ============================================================
+  # DynamoDB Tables
+  # ============================================================
+  FarmerSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-farmer-sessions-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: farmer_id
+          AttributeType: S
+        - AttributeName: session_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: farmer_id
+          KeyType: HASH
+        - AttributeName: session_id
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  AlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-alerts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: alert_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: alert_id
+          KeyType: RANGE
+
+  ChatHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-chat-history-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MarketPricesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-market-prices-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: crop_id
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: crop_id
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+
+  # ============================================================
+  # RDS PostgreSQL (for relational data)
+  # ============================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: SwadeshAI DB subnet group
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SwadeshAI RDS Security Group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/16
+
+  PostgresDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${ProjectName}-db-${Environment}
+      Engine: postgres
+      EngineVersion: '16.13'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      MasterUsername: swadesh_admin
+      MasterUserPassword: !Ref DBPassword
+      DBName: swadesh_ai
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============================================================
+  # Cognito (User Authentication)
+  # ============================================================
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${ProjectName}-users-${Environment}
+      AutoVerifiedAttributes:
+        - phone_number
+      UsernameAttributes:
+        - phone_number
+      Schema:
+        - Name: phone_number
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireNumbers: true
+          RequireSymbols: false
+      SmsConfiguration:
+        SnsCallerArn: !GetAtt CognitoSNSRole.Arn
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${ProjectName}-android-${Environment}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH
+
+  CognitoSNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cognito-idp.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CognitoSNSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: '*'
+
+  # ============================================================
+  # Lambda Functions
+  # ============================================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-lambda-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SwadeshAILambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${ProduceImagesBucket.Arn}/*
+                  - !Sub arn:aws:s3:::${ProjectName}-ml-models-${Environment}/*
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt FarmerSessionsTable.Arn
+                  - !GetAtt AlertsTable.Arn
+                  - !GetAtt ChatHistoryTable.Arn
+                  - !GetAtt MarketPricesTable.Arn
+              - Effect: Allow
+                Action:
+                  - rekognition:DetectLabels
+                  - rekognition:DetectCustomLabels
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sagemaker:InvokeEndpoint
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: '*'
+
+  SpoilagePredictionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-spoilage-prediction-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          MARKET_PRICES_TABLE: !Ref MarketPricesTable
+          ALERTS_TABLE: !Ref AlertsTable
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              # Placeholder — actual model inference logic
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({'message': 'Spoilage prediction placeholder'})
+              }
+
+  ImageQualityFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-image-quality-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          IMAGES_BUCKET: !Ref ProduceImagesBucket
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          def handler(event, context):
+              # Placeholder — Rekognition integration
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({'message': 'Image quality placeholder'})
+              }
+
+  PriceForecastFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-price-forecast-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          MARKET_PRICES_TABLE: !Ref MarketPricesTable
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              # Placeholder — price forecasting model
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({'message': 'Price forecast placeholder'})
+              }
+
+  ChatbotFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-chatbot-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          CHAT_HISTORY_TABLE: !Ref ChatHistoryTable
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          def handler(event, context):
+              # Placeholder — Bedrock Claude integration
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({'message': 'Chatbot placeholder'})
+              }
+
+  # ============================================================
+  # SageMaker — Freshness Detection Model
+  # ============================================================
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-sagemaker-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      Policies:
+        - PolicyName: SwadeshAISageMakerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${ProjectName}-ml-models-${Environment}
+                  - !Sub arn:aws:s3:::${ProjectName}-ml-models-${Environment}/*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+
+  FreshnessModel:
+    Type: AWS::SageMaker::Model
+    Properties:
+      ModelName: !Sub ${ProjectName}-freshness-detector-${Environment}
+      ExecutionRoleArn: !GetAtt SageMakerExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Sub 763104351884.dkr.ecr.${AWS::Region}.amazonaws.com/pytorch-inference:2.6.0-cpu-py312-ubuntu22.04-sagemaker
+        ModelDataUrl: !Sub s3://${ProjectName}-ml-models-${Environment}/models/freshness/model.tar.gz
+        Environment:
+          SAGEMAKER_PROGRAM: inference.py
+          SAGEMAKER_CONTAINER_LOG_LEVEL: '20'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  FreshnessEndpointConfig:
+    Type: AWS::SageMaker::EndpointConfig
+    Properties:
+      EndpointConfigName: !Sub ${ProjectName}-freshness-config-${Environment}
+      ProductionVariants:
+        - VariantName: primary
+          ModelName: !GetAtt FreshnessModel.ModelName
+          ServerlessConfig:
+            MemorySizeInMB: 2048
+            MaxConcurrency: 5
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  FreshnessEndpoint:
+    Type: AWS::SageMaker::Endpoint
+    Properties:
+      EndpointName: !Sub ${ProjectName}-freshness-endpoint-${Environment}
+      EndpointConfigName: !GetAtt FreshnessEndpointConfig.EndpointConfigName
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============================================================
+  # API Gateway (REST)
+  # ============================================================
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${ProjectName}-api-${Environment}
+      Description: SwadeshAI REST API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # ============================================================
+  # SNS Topic for Alerts
+  # ============================================================
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-alerts-${Environment}
+      DisplayName: SwadeshAI Alerts
+
+  # ============================================================
+  # CloudWatch Alarms
+  # ============================================================
+  HighSpoilageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-high-spoilage-rate-${Environment}
+      AlarmDescription: Alert when many spoilage predictions are high-risk
+      Namespace: SwadeshAI
+      MetricName: HighRiskPredictions
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  # ============================================================
+  # ECS Fargate (Backend hosting)
+  # ============================================================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${ProjectName}-cluster-${Environment}
+
+  BackendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ProjectName}-backend-${Environment}
+      Cpu: '2048'
+      Memory: '4096'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: backend
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}-backend:latest
+          PortMappings:
+            - ContainerPort: 8000
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref Environment
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: AWS_ONLY
+              Value: 'true'
+            - Name: DATABASE_URL
+              Value: !Sub 'postgresql+asyncpg://swadesh_admin:${DBPassword}@${PostgresDB.Endpoint.Address}:5432/swadesh_ai'
+            - Name: SAGEMAKER_FRESHNESS_ENDPOINT
+              Value: !GetAtt FreshnessEndpoint.EndpointName
+            - Name: BEDROCK_MODEL_ID
+              Value: !Ref BedrockModelId
+            - Name: BEDROCK_REGION
+              Value: us-east-1
+            - Name: TRANSCRIBE_REGION
+              Value: ap-south-1
+            - Name: POLLY_REGION
+              Value: us-east-1
+            - Name: S3_BUCKET_NAME
+              Value: swadesh-ai-data-ap
+            - Name: TRANSCRIBE_S3_BUCKET
+              Value: swadesh-ai-data-ap
+            - Name: MANDI_API_KEY
+              Value: !Ref MandiApiKey
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref BackendLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: backend
+
+  # ============================================================
+  # ALB — Public endpoint for ECS backend
+  # ============================================================
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/HTTPS to ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-alb-sg-${Environment}
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow traffic from ALB to ECS tasks
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-ecs-sg-${Environment}
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}-alb-${Environment}
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '120'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${ProjectName}-tg-${Environment}
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPC
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+      Matcher:
+        HttpCode: '200'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+
+  # ============================================================
+  # ECS Service — Runs backend behind ALB
+  # ============================================================
+  BackendService:
+    Type: AWS::ECS::Service
+    DependsOn: ALBListener
+    Properties:
+      ServiceName: !Sub ${ProjectName}-backend-${Environment}
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref BackendTaskDefinition
+      DesiredCount: 0
+      LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 180
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: backend
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ALBTargetGroup
+
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ProjectName}-backend-${Environment}
+      RetentionInDays: 14
+
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SwadeshAITaskPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - dynamodb:*
+                  - rekognition:*
+                  - bedrock:*
+                  - transcribe:StartTranscriptionJob
+                  - transcribe:GetTranscriptionJob
+                  - transcribe:DeleteTranscriptionJob
+                  - polly:SynthesizeSpeech
+                  - sagemaker:InvokeEndpoint
+                  - sns:Publish
+                  - ses:SendEmail
+                Resource: '*'
+
+  # ============================================================
+  # ECR Repository
+  # ============================================================
+  BackendECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${ProjectName}-backend
+      EmptyOnDelete: true
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 5 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  BackendEndpoint:
+    Description: Public ALB endpoint for the backend API
+    Value: !Sub http://${ApplicationLoadBalancer.DNSName}
+
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+
+  ProduceImagesBucketName:
+    Description: S3 bucket for produce images
+    Value: !Ref ProduceImagesBucket
+
+  PostgresEndpoint:
+    Description: RDS PostgreSQL endpoint
+    Value: !GetAtt PostgresDB.Endpoint.Address
+
+  ECSClusterName:
+    Description: ECS Cluster name
+    Value: !Ref ECSCluster
+
+  BackendECRUri:
+    Description: ECR repository URI for backend
+    Value: !GetAtt BackendECR.RepositoryUri
+
+  FreshnessEndpointName:
+    Description: SageMaker Freshness Detection endpoint name
+    Value: !GetAtt FreshnessEndpoint.EndpointName
+
+  FreshnessModelS3:
+    Description: S3 URI for the freshness model artifact
+    Value: !Sub s3://${ProjectName}-ml-models-${Environment}/models/freshness/model.tar.gz

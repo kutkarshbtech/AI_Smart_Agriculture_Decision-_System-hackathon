@@ -1,0 +1,66 @@
+# ── Python ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual environments ─────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Environment / secrets ────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE / Editor ─────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Testing ──────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ── Database files ───────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── ML datasets & trained models (large binaries) ───
+ml/freshness_detection/data/
+ml/freshness_detection/samples/
+ml/freshness_detection/models/
+ml/spoilage_prediction/data/*.csv
+ml/spoilage_prediction/models/*.joblib
+ml/spoilage_prediction/models/model.tar.gz
+backend/ml/pricing/saved_models/
+
+# ── Frontend build ───────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+
+# ── Android build ────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+*.apk
+
+# ── AWS CLI installer (not project code) ─────────────
+aws/
+awscliv2.zip
+
+# ── OS / misc ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+*.zip
+*.tar.gz

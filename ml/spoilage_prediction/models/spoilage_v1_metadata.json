@@ -1,0 +1,27 @@
+{
+  "n_train_samples": 34970,
+  "n_val_samples": 7470,
+  "feature_columns": [
+    "crop_type_idx",
+    "storage_type",
+    "temperature_c",
+    "humidity_pct",
+    "days_since_harvest",
+    "transport_hours",
+    "initial_quality_score",
+    "quantity_kg",
+    "damage_sensitivity",
+    "base_shelf_life_days",
+    "temp_deviation",
+    "humidity_deviation",
+    "respiration_multiplier"
+  ],
+  "n_features": 13,
+  "model_prefix": "spoilage_v1",
+  "risk_levels": {
+    "0": "low",
+    "1": "medium",
+    "2": "high",
+    "3": "critical"
+  }
+}

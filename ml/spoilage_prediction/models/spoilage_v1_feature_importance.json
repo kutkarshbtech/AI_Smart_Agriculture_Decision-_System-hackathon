@@ -1,0 +1,47 @@
+{
+  "shelf_life": {
+    "storage_type": 328855.0938,
+    "humidity_pct": 147121.0156,
+    "temperature_c": 140950.4062,
+    "days_since_harvest": 111261.6641,
+    "temp_deviation": 79154.7109,
+    "humidity_deviation": 73314.2734,
+    "initial_quality_score": 23419.0215,
+    "damage_sensitivity": 18008.2012,
+    "crop_type_idx": 17991.5918,
+    "transport_hours": 17435.5293,
+    "base_shelf_life_days": 16380.3418,
+    "quantity_kg": 15932.3818,
+    "respiration_multiplier": 15804.2539
+  },
+  "probability": {
+    "storage_type": 71.6786,
+    "days_since_harvest": 53.1462,
+    "temp_deviation": 21.6312,
+    "temperature_c": 9.8427,
+    "humidity_deviation": 8.0868,
+    "humidity_pct": 6.8149,
+    "transport_hours": 2.3213,
+    "initial_quality_score": 1.6056,
+    "quantity_kg": 1.533,
+    "base_shelf_life_days": 1.4837,
+    "damage_sensitivity": 1.4679,
+    "crop_type_idx": 1.4571,
+    "respiration_multiplier": 1.4221
+  },
+  "risk": {
+    "storage_type": 27.2886,
+    "days_since_harvest": 20.8647,
+    "temp_deviation": 12.2054,
+    "temperature_c": 6.0856,
+    "humidity_deviation": 4.9549,
+    "humidity_pct": 4.3689,
+    "transport_hours": 1.9721,
+    "initial_quality_score": 1.7174,
+    "base_shelf_life_days": 1.7134,
+    "quantity_kg": 1.6289,
+    "crop_type_idx": 1.6076,
+    "damage_sensitivity": 1.5924,
+    "respiration_multiplier": 1.4285
+  }
+}

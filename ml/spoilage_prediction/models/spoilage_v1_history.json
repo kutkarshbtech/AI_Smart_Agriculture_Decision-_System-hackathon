@@ -1,0 +1,36 @@
+{
+  "preset": "fast",
+  "training_time_seconds": 13.75,
+  "n_train_samples": 34970,
+  "n_val_samples": 7470,
+  "training_metrics": {
+    "shelf_life": {
+      "trained": true
+    },
+    "probability": {
+      "trained": true
+    },
+    "risk": {
+      "trained": true
+    }
+  },
+  "validation_metrics": {
+    "shelf_life_mae": 10.338,
+    "shelf_life_rmse": 32.517,
+    "shelf_life_r2": 0.8458,
+    "probability_mae": 0.0852,
+    "probability_rmse": 0.1654,
+    "risk_accuracy": 0.8744,
+    "risk_adjacent_accuracy": 0.9317
+  },
+  "timestamp": "2026-03-02T06:30:15.355355",
+  "test_metrics": {
+    "shelf_life_mae": 10.961,
+    "shelf_life_rmse": 34.226,
+    "shelf_life_r2": 0.8417,
+    "probability_mae": 0.0848,
+    "probability_rmse": 0.1618,
+    "risk_accuracy": 0.8753,
+    "risk_adjacent_accuracy": 0.9361
+  }
+}
